@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from fasthtml.common import *
 import requests
@@ -13,9 +13,16 @@ with open("/home/kiel/api_key.txt") as f:
 @rt("/")
 def get():
     frm = Form(
-        Group(Textarea(placeholder="Paste YouTube video transcript here", name="transcript"), 
-              Button("Send Transcript", hx_post="/process_transcript")), 
-        hx_post="/process_transcript", 
+        Group(
+            Textarea(placeholder="Paste YouTube video transcript here", name="transcript"),
+            Select(
+                Option("gemini-1.5-flash-latest"),
+                Option("gemini-1.5-pro-exp-0801"), 
+                name="model" 
+            ),
+            Button("Send Transcript", hx_post="/process_transcript")
+        ),
+        hx_post="/process_transcript",
         hx_target="#summary"
     )
     return Title("Video Transcript Summarizer"), Main(
@@ -24,12 +31,17 @@ def get():
     )
 
 @rt("/process_transcript")
-async def post(transcript: str):
+async def post(transcript: str, model: str):
+    # Check word count
+    words = transcript.split()
+    if len(words) > 20000:
+        return Div("Error: Transcript exceeds 20,000 words. Please shorten it.", id="summary")
+
     # Prepare the prompt for the Gemini API
     prompt = "I don't want to watch the video. Create a self-contained bullet list summary from the following transcript that I can understand without watching the video. " + transcript
 
     # Set up the API request
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + api_key
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     safety = [{"category": "HARM_CATEGORY_HATE_SPEECH","threshold": "BLOCK_NONE"},
               {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold": "BLOCK_NONE"}]
     data = {"contents": [{"parts": [{"text": prompt}]}],
@@ -38,16 +50,29 @@ async def post(transcript: str):
     data = json.dumps(data)
     headers = {"Content-Type": "application/json"}
 
-    # Make the API call
+    # Make the API call for summary
     response = requests.post(url, headers=headers, data=data)
 
     if response.status_code == 200:
         summary = response.json()['candidates'][0]['content']['parts'][0]['text']
-        # Youtube comments are not proper markdown, modify the summary to be more readable
-        summary = summary.replace("**", "*")
-        summary = summary.replace("*:", ":")
-        return Div(f"*Summary*\n{summary}", id="summary")
+
+        # Second API call to add timestamps
+        prompt_with_timestamps = f"Add starting (not stopping) timestamp to each bullet point in the following summary: {summary}\nThe full transcript is: {transcript}"
+        data_with_timestamps = {"contents": [{"parts": [{"text": prompt_with_timestamps}]}],
+                                "safetySettings": safety}
+        data_with_timestamps = json.dumps(data_with_timestamps)
+        response_with_timestamps = requests.post(url, headers=headers, data=data_with_timestamps)
+
+        if response_with_timestamps.status_code == 200:
+            summary_with_timestamps = response_with_timestamps.json()['candidates'][0]['content']['parts'][0]['text']
+
+            # Youtube comments are not proper markdown, modify the summary to be more readable
+            summary_with_timestamps = summary_with_timestamps.replace("**", "*")
+            summary_with_timestamps = summary_with_timestamps.replace("*:", ":")
+            return Pre(f"*Summary*\n{summary_with_timestamps}", id="summary")
+        else:
+            return Div(f"Error adding timestamps: {response_with_timestamps.status_code}", id="summary")
     else:
-        return Div(f"Error: {response.status_code}", id="summary")
+        return Div(f"Error generating summary: {response.status_code}", id="summary")
 
 serve()
