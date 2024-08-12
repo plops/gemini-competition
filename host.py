@@ -4,10 +4,10 @@ from fasthtml.common import *
 import requests
 import json
 
-app, rt = fast_app(live=True)
+app, rt = fast_app(live=False)
 
 # Load your Google Gemini API key
-with open("/home/kiel/api_key.txt") as f:
+with open("api_key.txt") as f:
     api_key = f.read().strip()
 
 @rt("/")
