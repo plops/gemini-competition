@@ -83,6 +83,7 @@ async def post(transcript: str, model: str):
 
             summary_pre = f"""*Summary*
 {summary_with_timestamps}
+Summarized by AI model: {model}
 Cost (if I didn't use the free tier): ${cost_input+cost_output:.4f}
 Input tokens: {input_tokens+input_tokens2}
 Output tokens: {output_tokens+output_tokens2}
