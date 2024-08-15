@@ -55,7 +55,8 @@ async def post(transcript: str, model: str):
 
     if response.status_code == 200:
         summary = response.json()['candidates'][0]['content']['parts'][0]['text']
-
+        input_tokens = response.json()['usageMetadata']['promptTokenCount']
+        output_tokens = response.json()['usageMetadata']['candidatesTokenCount']
         # Second API call to add timestamps
         prompt_with_timestamps = f"Add starting (not stopping) timestamp to each bullet point in the following summary: {summary}\nThe full transcript is: {transcript}"
         data_with_timestamps = {"contents": [{"parts": [{"text": prompt_with_timestamps}]}],
@@ -65,11 +66,28 @@ async def post(transcript: str, model: str):
 
         if response_with_timestamps.status_code == 200:
             summary_with_timestamps = response_with_timestamps.json()['candidates'][0]['content']['parts'][0]['text']
-
+            input_tokens2 = response2.json()['usageMetadata']['promptTokenCount']
+            output_tokens2 = response2.json()['usageMetadata']['candidatesTokenCount']
             # Youtube comments are not proper markdown, modify the summary to be more readable
             summary_with_timestamps = summary_with_timestamps.replace("**", "*")
-            summary_with_timestamps = summary_with_timestamps.replace("*:", ":")
-            return Pre(f"*Summary*\n{summary_with_timestamps}", id="summary")
+            summary_with_timestamps = summary_with_timestamps.replace("*:", ":*")
+            
+            if model == "gemini-1.5-pro-exp-0801":
+                price_input_token_usd_per_mio = 3.5
+                price_output_token_usd_per_mio = 10.5
+            else:
+                price_input_token_usd_per_mio = 0.075
+                price_output_token_usd_per_mio = 0.3
+            cost_input = (input_tokens+input_tokens2) / 1_000_000 * price_input_token_usd_per_mio
+            cost_output = (output_tokens+output_tokens2) / 1_000_000 * price_output_token_usd_per_mio
+            
+            summary_pre = f"""*Summary*
+{summary_with_timestamps}
+Cost (if I didn't use the free tier): ${cost_input+cost_output:.4f}
+Input tokens: {input_tokens+input_tokens2}
+Output tokens: {output_tokens+output_tokens2}
+"""
+            return Pre(summary_pre, id="summary")
         else:
             return Div(f"Error adding timestamps: {response_with_timestamps.status_code}", id="summary")
     else:
