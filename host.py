@@ -66,8 +66,8 @@ async def post(transcript: str, model: str):
 
         if response_with_timestamps.status_code == 200:
             summary_with_timestamps = response_with_timestamps.json()['candidates'][0]['content']['parts'][0]['text']
-            input_tokens2 = response2.json()['usageMetadata']['promptTokenCount']
-            output_tokens2 = response2.json()['usageMetadata']['candidatesTokenCount']
+            input_tokens2 = response_with_timestamps.json()['usageMetadata']['promptTokenCount']
+            output_tokens2 = response_with_timestamps.json()['usageMetadata']['candidatesTokenCount']
             # Youtube comments are not proper markdown, modify the summary to be more readable
             summary_with_timestamps = summary_with_timestamps.replace("**", "*")
             summary_with_timestamps = summary_with_timestamps.replace("*:", ":*")
@@ -80,7 +80,7 @@ async def post(transcript: str, model: str):
                 price_output_token_usd_per_mio = 0.3
             cost_input = (input_tokens+input_tokens2) / 1_000_000 * price_input_token_usd_per_mio
             cost_output = (output_tokens+output_tokens2) / 1_000_000 * price_output_token_usd_per_mio
-            
+
             summary_pre = f"""*Summary*
 {summary_with_timestamps}
 Cost (if I didn't use the free tier): ${cost_input+cost_output:.4f}
