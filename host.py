@@ -16,8 +16,8 @@ def get():
         Group(
             Textarea(placeholder="Paste YouTube video transcript here", name="transcript"),
             Select(
+                Option("gemini-1.5-pro-exp-0801"),
                 Option("gemini-1.5-flash-latest"),
-                Option("gemini-1.5-pro-exp-0801"), 
                 name="model" 
             ),
             Button("Send Transcript", hx_post="/process_transcript")
